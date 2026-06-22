@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로또 추첨기</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-hover: #243044;
+      --text: #e8edf4;
+      --text-muted: #8b9cb3;
+      --accent: #ffd700;
+      --accent-glow: rgba(255, 215, 0, 0.35);
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 3rem;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 215, 0, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(105, 200, 242, 0.06), transparent);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 5vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    main {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .balls-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+      min-height: 72px;
+      margin-bottom: 1.5rem;
+    }
+
+    .ball {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: #1a1a1a;
+      box-shadow:
+        inset 0 -3px 6px rgba(0, 0, 0, 0.2),
+        inset 0 3px 6px rgba(255, 255, 255, 0.35),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+      transform: scale(0);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    }
+
+    .ball.visible {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .ball.rolling {
+      animation: roll 0.08s linear infinite;
+    }
+
+    @keyframes roll {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.05) rotate(5deg); }
+    }
+
+    .ball.yellow { background: linear-gradient(145deg, #ffe566, #fbc400); }
+    .ball.blue   { background: linear-gradient(145deg, #8ed4f7, #69c8f2); }
+    .ball.red    { background: linear-gradient(145deg, #ff9999, #ff7272); }
+    .ball.gray   { background: linear-gradient(145deg, #c8c8c8, #aaaaaa); }
+    .ball.green  { background: linear-gradient(145deg, #c8e86a, #b0d840); }
+
+    .bonus-section {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+
+    .bonus-section.show {
+      display: flex;
+    }
+
+    .bonus-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .bonus-plus {
+      color: var(--accent);
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .option-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .option-group label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .option-group select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-label input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .btn-draw {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      background: linear-gradient(145deg, #ffe566, #ffd700);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-draw:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px var(--accent-glow);
+    }
+
+    .btn-draw:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-draw:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .history {
+      margin-top: 2rem;
+    }
+
+    .history h2 {
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg);
+      border-radius: 10px;
+      font-size: 0.85rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .history-item .round {
+      color: var(--text-muted);
+      min-width: 2rem;
+      font-weight: 600;
+    }
+
+    .history-item .mini-ball {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      color: #1a1a1a;
+      box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .history-item .mini-ball.yellow { background: #fbc400; }
+    .history-item .mini-ball.blue   { background: #69c8f2; }
+    .history-item .mini-ball.red    { background: #ff7272; }
+    .history-item .mini-ball.gray   { background: #aaaaaa; }
+    .history-item .mini-ball.green  { background: #b0d840; }
+
+    .history-empty {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      padding: 1.5rem;
+    }
+
+    .btn-clear {
+      margin-top: 0.75rem;
+      width: 100%;
+      padding: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .btn-clear:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .winners {
+      margin-top: 2rem;
+    }
+
+    .winners-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .winners-header h2 {
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .winners-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .winners-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .winners-toolbar input,
+    .winners-toolbar select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .winners-toolbar input {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .winners-toolbar select {
+      cursor: pointer;
+    }
+
+    .winners-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .winner-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem 1rem;
+      padding: 0.9rem 1rem;
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      animation: fadeIn 0.25s ease;
+    }
+
+    .winner-round {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.5rem;
+      padding-right: 0.75rem;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .winner-round .round-num {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+
+    .winner-round .round-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .winner-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+
+    .winner-balls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .winner-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .winner-info .prize {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .winners-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .winners-pagination button {
+      padding: 0.45rem 0.9rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .winners-pagination button:hover:not(:disabled) {
+      background: var(--surface-hover);
+    }
+
+    .winners-pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .winners-pagination .page-info {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 5rem;
+      text-align: center;
+    }
+
+    .winners-empty {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      padding: 2rem 1rem;
+      background: var(--surface);
+      border-radius: 12px;
+    }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎱 <span>로또</span> 추첨기</h1>
+    <p class="subtitle">1~45번 중 6개 번호를 무작위로 추첨합니다</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="balls-container" id="ballsContainer" aria-live="polite">
+        <div class="ball yellow rolling" data-placeholder>?</div>
+        <div class="ball blue rolling" data-placeholder>?</div>
+        <div class="ball red rolling" data-placeholder>?</div>
+        <div class="ball gray rolling" data-placeholder>?</div>
+        <div class="ball green rolling" data-placeholder>?</div>
+        <div class="ball yellow rolling" data-placeholder>?</div>
+      </div>
+
+      <div class="bonus-section" id="bonusSection">
+        <span class="bonus-label">보너스</span>
+        <span class="bonus-plus">+</span>
+        <div class="ball yellow" id="bonusBall">?</div>
+      </div>
+
+      <div class="controls">
+        <div class="options">
+          <div class="option-group">
+            <label for="setCount">추첨 세트</label>
+            <select id="setCount">
+              <option value="1">1세트</option>
+              <option value="3">3세트</option>
+              <option value="5" selected>5세트</option>
+              <option value="10">10세트</option>
+            </select>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="includeBonus">
+            보너스 번호 포함
+          </label>
+        </div>
+        <button class="btn-draw" id="drawBtn" type="button">추첨하기</button>
+      </div>
+    </section>
+
+    <section class="history">
+      <h2>내 추첨 기록</h2>
+      <div class="history-list" id="historyList">
+        <p class="history-empty" id="historyEmpty">아직 추첨 기록이 없습니다</p>
+      </div>
+      <button class="btn-clear" id="clearBtn" type="button" hidden>기록 지우기</button>
+    </section>
+
+    <section class="winners">
+      <div class="winners-header">
+        <h2>역대 1등 당첨번호</h2>
+        <span class="winners-meta" id="winnersMeta">불러오는 중...</span>
+      </div>
+      <div class="winners-toolbar">
+        <input type="search" id="winnerSearch" placeholder="회차 검색 (예: 1100)" inputmode="numeric">
+        <select id="winnerSort">
+          <option value="desc">최신순</option>
+          <option value="asc">오래된순</option>
+          <option value="prize-desc">당첨금 높은순</option>
+          <option value="prize-asc">당첨금 낮은순</option>
+        </select>
+      </div>
+      <div class="winners-list" id="winnersList"></div>
+      <div class="winners-pagination" id="winnersPagination" hidden>
+        <button type="button" id="prevPage">이전</button>
+        <span class="page-info" id="pageInfo">1 / 1</span>
+        <button type="button" id="nextPage">다음</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>당첨 데이터 출처: 동행복권 · 1회(2002.12.07) ~ 최신 회차</p>
+  </footer>
+
+  <script src="lotto-data.js"></script>
+  <script>
+    const MIN = 1;
+    const MAX = 45;
+    const COUNT = 6;
+
+    const ballsContainer = document.getElementById('ballsContainer');
+    const bonusSection = document.getElementById('bonusSection');
+    const bonusBall = document.getElementById('bonusBall');
+    const drawBtn = document.getElementById('drawBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const historyList = document.getElementById('historyList');
+    const historyEmpty = document.getElementById('historyEmpty');
+    const setCountSelect = document.getElementById('setCount');
+    const includeBonusCheckbox = document.getElementById('includeBonus');
+
+    let historyRound = 0;
+    let isDrawing = false;
+
+    function getBallColor(num) {
+      if (num <= 10) return 'yellow';
+      if (num <= 20) return 'blue';
+      if (num <= 30) return 'red';
+      if (num <= 40) return 'gray';
+      return 'green';
+    }
+
+    function pickNumbers(count, exclude = []) {
+      const pool = [];
+      for (let i = MIN; i <= MAX; i++) {
+        if (!exclude.includes(i)) pool.push(i);
+      }
+      const result = [];
+      for (let i = 0; i < count; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        result.push(pool.splice(idx, 1)[0]);
+      }
+      return result.sort((a, b) => a - b);
+    }
+
+    function createBallElement(num, mini = false) {
+      const el = document.createElement('div');
+      el.className = mini ? `mini-ball ${getBallColor(num)}` : `ball ${getBallColor(num)}`;
+      el.textContent = num;
+      return el;
+    }
+
+    function renderPlaceholderBalls() {
+      ballsContainer.innerHTML = '';
+      const colors = ['yellow', 'blue', 'red', 'gray', 'green', 'yellow'];
+      for (let i = 0; i < COUNT; i++) {
+        const ball = document.createElement('div');
+        ball.className = `ball ${colors[i]} rolling`;
+        ball.textContent = '?';
+        ball.dataset.placeholder = '';
+        ballsContainer.appendChild(ball);
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function animateDraw(numbers, bonus = null) {
+      const balls = ballsContainer.querySelectorAll('.ball');
+      balls.forEach(b => {
+        b.classList.add('rolling');
+        b.textContent = '?';
+        b.classList.remove('visible');
+      });
+
+      for (let i = 0; i < numbers.length; i++) {
+        await sleep(120);
+        const ball = balls[i];
+        ball.classList.remove('rolling');
+        ball.className = `ball ${getBallColor(numbers[i])}`;
+        ball.textContent = numbers[i];
+        await sleep(30);
+        ball.classList.add('visible');
+        await sleep(280);
+      }
+
+      if (bonus !== null) {
+        bonusSection.classList.add('show');
+        bonusBall.className = `ball ${getBallColor(bonus)} rolling`;
+        bonusBall.textContent = '?';
+        bonusBall.classList.remove('visible');
+        await sleep(400);
+        bonusBall.classList.remove('rolling');
+        bonusBall.className = `ball ${getBallColor(bonus)}`;
+        bonusBall.textContent = bonus;
+        bonusBall.classList.add('visible');
+      } else {
+        bonusSection.classList.remove('show');
+      }
+    }
+
+    function addToHistory(numbers, bonus = null) {
+      historyRound++;
+      if (historyEmpty) {
+        historyEmpty.remove();
+      }
+      clearBtn.hidden = false;
+
+      const item = document.createElement('div');
+      item.className = 'history-item';
+
+      const round = document.createElement('span');
+      round.className = 'round';
+      round.textContent = `${historyRound}.`;
+      item.appendChild(round);
+
+      numbers.forEach(num => item.appendChild(createBallElement(num, true)));
+
+      if (bonus !== null) {
+        const plus = document.createElement('span');
+        plus.textContent = '+';
+        plus.style.color = 'var(--accent)';
+        plus.style.fontWeight = '700';
+        item.appendChild(plus);
+        item.appendChild(createBallElement(bonus, true));
+      }
+
+      historyList.prepend(item);
+    }
+
+    async function drawOneSet(includeBonus) {
+      const numbers = pickNumbers(COUNT);
+      let bonus = null;
+      if (includeBonus) {
+        bonus = pickNumbers(1, numbers)[0];
+      }
+      await animateDraw(numbers, bonus);
+      addToHistory(numbers, bonus);
+      return { numbers, bonus };
+    }
+
+    async function handleDraw() {
+      if (isDrawing) return;
+      isDrawing = true;
+      drawBtn.disabled = true;
+      drawBtn.textContent = '추첨 중...';
+
+      const setCount = parseInt(setCountSelect.value, 10);
+      const includeBonus = includeBonusCheckbox.checked;
+
+      for (let i = 0; i < setCount; i++) {
+        if (i > 0) {
+          renderPlaceholderBalls();
+          await sleep(300);
+        }
+        await drawOneSet(includeBonus && i === 0);
+        if (i < setCount - 1) await sleep(400);
+      }
+
+      drawBtn.disabled = false;
+      drawBtn.textContent = '추첨하기';
+      isDrawing = false;
+    }
+
+    function clearHistory() {
+      historyList.innerHTML = '<p class="history-empty" id="historyEmpty">아직 추첨 기록이 없습니다</p>';
+      clearBtn.hidden = true;
+      historyRound = 0;
+    }
+
+    drawBtn.addEventListener('click', handleDraw);
+    clearBtn.addEventListener('click', clearHistory);
+
+    includeBonusCheckbox.addEventListener('change', () => {
+      if (!includeBonusCheckbox.checked) {
+        bonusSection.classList.remove('show');
+      }
+    });
+
+    // --- 역대 1등 당첨번호 ---
+    const winnersList = document.getElementById('winnersList');
+    const winnersMeta = document.getElementById('winnersMeta');
+    const winnerSearch = document.getElementById('winnerSearch');
+    const winnerSort = document.getElementById('winnerSort');
+    const winnersPagination = document.getElementById('winnersPagination');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+    const pageInfo = document.getElementById('pageInfo');
+
+    const PAGE_SIZE = 20;
+    let allWinners = [];
+    let filteredWinners = [];
+    let currentPage = 1;
+
+    function formatMoney(amount) {
+      if (!amount) return '미당첨';
+      if (amount >= 100000000) {
+        const eok = amount / 100000000;
+        return `${eok % 1 === 0 ? eok.toFixed(0) : eok.toFixed(1)}억원`;
+      }
+      return `${amount.toLocaleString('ko-KR')}원`;
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${y}.${m}.${d}`;
+    }
+
+    function renderWinnerItem(item) {
+      const el = document.createElement('article');
+      el.className = 'winner-item';
+
+      const round = document.createElement('div');
+      round.className = 'winner-round';
+      round.innerHTML = `<span class="round-num">${item.round}</span><span class="round-label">회</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'winner-body';
+
+      const balls = document.createElement('div');
+      balls.className = 'winner-balls';
+      item.numbers.forEach(num => balls.appendChild(createBallElement(num, true)));
+      const plus = document.createElement('span');
+      plus.textContent = '+';
+      plus.style.color = 'var(--accent)';
+      plus.style.fontWeight = '700';
+      balls.appendChild(plus);
+      balls.appendChild(createBallElement(item.bonus, true));
+
+      const info = document.createElement('div');
+      info.className = 'winner-info';
+      info.innerHTML = `
+        <span class="prize">1등 ${item.firstWinners === 0 ? '낙첨' : formatMoney(item.firstPrize)}</span>
+        <span>${item.firstWinners === 0 ? '당첨자 없음' : `${item.firstWinners}명 당첨`}</span>
+        <span>${formatDate(item.date)}</span>
+      `;
+
+      body.appendChild(balls);
+      body.appendChild(info);
+      el.appendChild(round);
+      el.appendChild(body);
+      return el;
+    }
+
+    function sortWinners(list, sortKey) {
+      const sorted = [...list];
+      switch (sortKey) {
+        case 'asc':
+          sorted.sort((a, b) => a.round - b.round);
+          break;
+        case 'prize-desc':
+          sorted.sort((a, b) => b.firstPrize - a.firstPrize || b.round - a.round);
+          break;
+        case 'prize-asc':
+          sorted.sort((a, b) => a.firstPrize - b.firstPrize || a.round - b.round);
+          break;
+        default:
+          sorted.sort((a, b) => b.round - a.round);
+      }
+      return sorted;
+    }
+
+    function applyWinnerFilters() {
+      const query = winnerSearch.value.trim();
+      let list = allWinners;
+      if (query) {
+        list = list.filter(item => String(item.round).includes(query));
+      }
+      filteredWinners = sortWinners(list, winnerSort.value);
+      currentPage = 1;
+      renderWinnersPage();
+    }
+
+    function renderWinnersPage() {
+      const total = filteredWinners.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filteredWinners.slice(start, start + PAGE_SIZE);
+
+      winnersList.innerHTML = '';
+      if (pageItems.length === 0) {
+        winnersList.innerHTML = '<p class="winners-empty">검색 결과가 없습니다</p>';
+        winnersPagination.hidden = true;
+        return;
+      }
+
+      pageItems.forEach(item => winnersList.appendChild(renderWinnerItem(item)));
+      winnersPagination.hidden = totalPages <= 1;
+      pageInfo.textContent = `${currentPage} / ${totalPages}`;
+      prevPageBtn.disabled = currentPage <= 1;
+      nextPageBtn.disabled = currentPage >= totalPages;
+    }
+
+    async function refreshWinnersFromApi() {
+      try {
+        const res = await fetch('https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do?srchLtEpsd=all', {
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        if (!res.ok) return false;
+        const json = await res.json();
+        if (!json?.data?.list?.length) return false;
+
+        allWinners = json.data.list.map(item => {
+          const ymd = item.ltRflYmd;
+          return {
+            round: Number(item.ltEpsd),
+            date: `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`,
+            numbers: [item.tm1WnNo, item.tm2WnNo, item.tm3WnNo, item.tm4WnNo, item.tm5WnNo, item.tm6WnNo],
+            bonus: item.bnsWnNo,
+            firstPrize: item.rnk1WnAmt,
+            firstWinners: item.rnk1WnNope
+          };
+        }).sort((a, b) => b.round - a.round);
+
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    async function initWinners() {
+      if (typeof LOTTO_HISTORY !== 'undefined' && LOTTO_HISTORY.length) {
+        allWinners = LOTTO_HISTORY;
+      }
+
+      const refreshed = await refreshWinnersFromApi();
+      const latest = allWinners[0];
+      const oldest = allWinners[allWinners.length - 1];
+      winnersMeta.textContent = refreshed
+        ? `${oldest.round}회 ~ ${latest.round}회 · 실시간 갱신`
+        : `${oldest.round}회(${formatDate(oldest.date)}) ~ ${latest.round}회(${formatDate(latest.date)})`;
+
+      applyWinnerFilters();
+    }
+
+    winnerSearch.addEventListener('input', applyWinnerFilters);
+    winnerSort.addEventListener('change', applyWinnerFilters);
+    prevPageBtn.addEventListener('click', () => {
+      currentPage--;
+      renderWinnersPage();
+      winnersList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    nextPageBtn.addEventListener('click', () => {
+      currentPage++;
+      renderWinnersPage();
+      winnersList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    initWinners();
+  </script>
+</body>
+</html>
